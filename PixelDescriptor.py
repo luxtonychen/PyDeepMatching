@@ -1,4 +1,5 @@
 import skimage
+from scipy import ndimage
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -47,16 +48,40 @@ class PixelDescriptor(object):
 
 
     def _get_gradient(self, img):
-        pass
+        kernel = np.array([[0, 0, 0], 
+                           [-1, 0, 1], 
+                           [0, 0, 0]])
+        out = np.zeros((img.shape[0], img.shape[1], 2))
+        out[:,:,0] = ndimage.convolve(img, kernel)
+        out[:,:,1] = ndimage.convolve(img, kernel.T)
+
+        return out
 
     def _get_hog(self, grad):
-        pass
+        hog = np.zeros((grad.shape[0], grad.shape[1], 9))
+        num_ori = 8
+        list_sin = [np.sin(((-2)*(i-2)*np.pi)/num_ori) for i in range(num_ori)]
+        list_cos = [np.cos(((-2)*(i-2)*np.pi)/num_ori) for i in range(num_ori)]
 
-    def _non_linear(self, img, hog_sigmoid):
-        pass
+        for i in range(num_ori):
+            hog[:,:,i] = grad[:,:,0]*list_cos[i] +  grad[:,:,1]*list_sin[i]
+        
+        hog[hog<0] = 0
+
+        return hog
+
+    def _non_linear(self, hog, hog_sigmoid):
+        
+        sigmoid = lambda x: (2/1+np.exp((-1)*hog_sigmoid*x))-1
+        
+        return sigmoid(hog)
+
 
     def _add_ninth_dim(self, hog, constant):
-        pass
+        
+        hog[:,:,8] = np.zeros((hog.shape[0], hog.shape[1])) + constant
+
+        return hog
 
     def _norm(self, hog):
         pass
