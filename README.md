@@ -1,3 +1,2 @@
 # PyDeepMatching
-A python implementation of DeepMatching
-see
+A python implementation of [DeepMatching](https://lear.inrialpes.fr/src/deepmatching/)

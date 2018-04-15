@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 class PixelDescriptor(object):
 
     def __init__(self, presmooth_sigma=1, mid_smoothing=1,
-                 post_smoothing=1, hog_sigmoid=0.2, ninth_dim=0.3,
+                 post_smoothing=1, hog_sigmoid=0.2, ninth_dim=0,
                  norm_pixels = False):
             
             self.presmooth_sigma = presmooth_sigma
@@ -32,14 +32,14 @@ class PixelDescriptor(object):
 
         if self.post_smoothing != 0:
             hog = self._smooth(hog, self.post_smoothing)
-
+#
         hog = self._non_linear(hog, self.hog_sigmoid)
         
         hog = self._add_ninth_dim(hog, self.ninth_dim)
-
+#
         if self.norm_pixels:
             hog = self._norm(hog)
-
+#
         return hog
 
 
@@ -72,7 +72,7 @@ class PixelDescriptor(object):
 
     def _non_linear(self, hog, hog_sigmoid):
         
-        sigmoid = lambda x: (2/1+np.exp((-1)*hog_sigmoid*x))-1
+        sigmoid = lambda x: (2/(1+np.exp((-1)*hog_sigmoid*x)))-1
         
         return sigmoid(hog)
 
