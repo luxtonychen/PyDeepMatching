@@ -18,15 +18,10 @@ class DeepMatching(object):
 
         filters, filt4_pos = self._nt_atomic_filter(des_base, self.atomic_filter_size)
         activation_map = self._t_get_correlation_map(des_search, filters)
-
-        act8, filt8_pos = self._t_patch_aggregation(activation_map, filt4_pos)
-        act16, filt16_pos = self._t_patch_aggregation(act8, filt8_pos)
-        act32, filt32_pos = self._t_patch_aggregation(act16, filt16_pos)
-        act64, filt64_pos = self._t_patch_aggregation(act32, filt32_pos)
-        act128, filt128_pos = self._t_patch_aggregation(act64, filt64_pos)
+        pyramid = self._get_response_pyramid((activation_map, filt4_pos), 5)
         
 
-        return des_base, filters, act64
+        return des_base, filters, pyramid
 
 
     def _nt_atomic_filter(self, img, filter_size):
@@ -94,9 +89,22 @@ class DeepMatching(object):
 
         return maps, filter_pos
 
+    def _get_response_pyramid(self, response, max_level=None):
+        response_maps = response[0]
+        filter_pos = response[1]
+        pyramid = {'filt_4':response}
+        max_size = max(response_maps[0][0].shape[0], response_maps[0][0].shape[1])
+        print(max_size)
+        N = 8
+        i = 0
+        while i < max_level:
+            response_maps, filter_pos = self._t_patch_aggregation(response_maps, filter_pos)
+            pyramid['filt_'+str(N)] = (response_maps, filter_pos)
+            N *= 2
+            print(N)
+            i += 1
 
-
-
+        return pyramid
         
 
 
