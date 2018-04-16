@@ -16,10 +16,17 @@ class DeepMatching(object):
         des_base = self.descriptor.GetDescriptor(img_base)
         des_search = self.descriptor.GetDescriptor(img_search)
 
-        filters, _ = self._nt_atomic_filter(des_base, self.atomic_filter_size)
+        filters, filt4_pos = self._nt_atomic_filter(des_base, self.atomic_filter_size)
         activation_map = self._t_get_correlation_map(des_search, filters)
 
-        return des_base, filters, activation_map.cpu()
+        act8, filt8_pos = self._t_patch_aggregation(activation_map, filt4_pos)
+        act16, filt16_pos = self._t_patch_aggregation(act8, filt8_pos)
+        act32, filt32_pos = self._t_patch_aggregation(act16, filt16_pos)
+        act64, filt64_pos = self._t_patch_aggregation(act32, filt32_pos)
+        act128, filt128_pos = self._t_patch_aggregation(act64, filt64_pos)
+        
+
+        return des_base, filters, act64
 
 
     def _nt_atomic_filter(self, img, filter_size):
@@ -53,11 +60,18 @@ class DeepMatching(object):
         #correlation_map = F.conv2d(Variable(tensor), Variable(filters), padding=1)        
         return correlation_map.data
 
-    def _t_patch_aggregation(self, correlation_map, filter_position, power_correct):
-        pooled_map = F.max_pool2d(correlation_map, 3, stride=2, return_indices=True)
-        pooled_map = pooled_map.cpu()
-        for x in filter_position.shape[0]:
-            for y in filter_position.shape[1]:
+    def _t_patch_aggregation(self, correlation_map, filter_position, power_correct=1.4):
+        pooled_map = F.max_pool2d(Variable(correlation_map), 3, stride=2, return_indices=False)
+        pooled_map = pooled_map.data.cpu()
+        x_maps = filter_position.shape[0]-1
+        y_maps = filter_position.shape[1]-1
+        n_maps = x_maps*y_maps
+        maps = torch.FloatTensor(1, n_maps, pooled_map[0][0].shape[0]-1, pooled_map[0][0].shape[1]-1)
+
+        filter_pos = np.zeros((x_maps, y_maps))
+        i = 0
+        for x in range(x_maps):
+            for y in range(y_maps):
                 sub_map_1 = pooled_map[0,filter_position[x, y],:,:]
                 sub_map_2 = pooled_map[0,filter_position[x, y+1],:,:]
                 sub_map_3 = pooled_map[0,filter_position[x+1, y],:,:]
@@ -74,6 +88,11 @@ class DeepMatching(object):
                 sub_map[0] = torch.sum(sub_map, 0)
                 sub_map[0] = torch.div(sub_map[0], 0.25)
                 sub_map[0] = torch.pow(sub_map[0], power_correct)
+                maps[0,i,:,:] = sub_map[0]
+                filter_pos[x][y] = i
+                i += 1
+
+        return maps, filter_pos
 
 
 
