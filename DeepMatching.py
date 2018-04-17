@@ -61,7 +61,7 @@ class DeepMatching(object):
         x_maps = filter_position.shape[0]-1
         y_maps = filter_position.shape[1]-1
         n_maps = x_maps*y_maps
-        maps = torch.FloatTensor(1, n_maps, pooled_map[0][0].shape[0]-1, pooled_map[0][0].shape[1]-1)
+        maps = torch.FloatTensor(1, n_maps, pooled_map[0][0].shape[0], pooled_map[0][0].shape[1]).zero_()
 
         filter_pos = np.zeros((x_maps, y_maps))
         i = 0
@@ -73,12 +73,12 @@ class DeepMatching(object):
                 sub_map_4 = pooled_map[0,filter_position[x+1, y+1],:,:]
 
                 map_size_x, map_size_y = sub_map_1.shape[0], sub_map_1.shape[1]
-                sub_map = torch.FloatTensor(4, map_size_x-1, map_size_y-1)
+                sub_map = torch.FloatTensor(4, map_size_x, map_size_y).zero_()
                 #shift
-                sub_map[0] = sub_map_1[:map_size_x-1, :map_size_y-1]
-                sub_map[1] = sub_map_2[:map_size_x-1, 1:]
-                sub_map[2] = sub_map_3[1:, :map_size_y-1]
-                sub_map[3] = sub_map_4[1:,1:]
+                sub_map[0,1:,1:] = sub_map_1[:map_size_x-1, :map_size_y-1]
+                sub_map[1, 1:, :map_size_y-1] = sub_map_2[:map_size_x-1, 1:]
+                sub_map[2, :map_size_x-1, 1:] = sub_map_3[1:, :map_size_y-1]
+                sub_map[3, :map_size_x-1, :map_size_y-1] = sub_map_4[1:,1:]
                 #average and recitification
                 sub_map[0] = torch.sum(sub_map, 0)
                 sub_map[0] = torch.div(sub_map[0], 0.25)
@@ -93,11 +93,11 @@ class DeepMatching(object):
         response_maps = response[0]
         filter_pos = response[1]
         pyramid = {'filt_4':response}
-        max_size = max(response_maps[0][0].shape[0], response_maps[0][0].shape[1])
-        print(max_size)
+        max_edge = max(response_maps[0][0].shape[0], response_maps[0][0].shape[1])
+        print(max_edge)
         N = 8
         i = 0
-        while i < max_level:
+        while N < max_edge:
             response_maps, filter_pos = self._t_patch_aggregation(response_maps, filter_pos)
             pyramid['filt_'+str(N)] = (response_maps, filter_pos)
             N *= 2
