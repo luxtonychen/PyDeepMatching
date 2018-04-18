@@ -2,6 +2,7 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 from torch.autograd import Variable
+from collections import OrderedDict
 
 class DeepMatching(object):
 
@@ -81,7 +82,7 @@ class DeepMatching(object):
                 sub_map[3, :map_size_x-1, :map_size_y-1] = sub_map_4[1:,1:]
                 #average and recitification
                 sub_map[0] = torch.sum(sub_map, 0)
-                sub_map[0] = torch.div(sub_map[0], 0.25)
+                sub_map[0] = torch.div(sub_map[0], 4)
                 sub_map[0] = torch.pow(sub_map[0], power_correct)
                 maps[0,i,:,:] = sub_map[0]
                 filter_pos[x][y] = i
@@ -92,19 +93,28 @@ class DeepMatching(object):
     def _get_response_pyramid(self, response, max_level=None):
         response_maps = response[0]
         filter_pos = response[1]
-        pyramid = {'filt_4':response}
+        pyramid = OrderedDict()
+        pyramid[4] = (response[0].cpu().numpy(), response[1])
         max_edge = max(response_maps[0][0].shape[0], response_maps[0][0].shape[1])
-        print(max_edge)
+        #print(max_edge)
         N = 8
         i = 0
         while N < max_edge:
             response_maps, filter_pos = self._t_patch_aggregation(response_maps, filter_pos)
-            pyramid['filt_'+str(N)] = (response_maps, filter_pos)
+            pyramid[N] = (response_maps.cpu().numpy(), filter_pos)
             N *= 2
-            print(N)
+            #print(N)
             i += 1
 
         return pyramid
+
+    def _matching(self, pyramid):
+        #find entry
+        top_layer = pyramid[list(pyramid.keys())[-1]][0]
+        entry_z, entry_x, entry_y = np.where(top_layer == np.max(top_layer))
+
+
+
         
 
 

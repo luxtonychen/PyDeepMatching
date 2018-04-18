@@ -32,7 +32,8 @@ class PixelDescriptor(object):
 
         if self.post_smoothing != 0:
             hog = self._smooth(hog, self.post_smoothing)
-#
+#       
+        hog = skimage.img_as_ubyte(hog)
         hog = self._non_linear(hog, self.hog_sigmoid)
         
         hog = self._add_ninth_dim(hog, self.ninth_dim)
