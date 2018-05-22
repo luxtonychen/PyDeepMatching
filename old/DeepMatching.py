@@ -57,7 +57,7 @@ class DeepMatching(object):
         return correlation_map.data
 
     def _t_patch_aggregation(self, correlation_map, filter_position, power_correct=1.4):
-        pooled_map = F.max_pool2d(Variable(correlation_map), 3, stride=2, return_indices=False)
+        pooled_map, pool_index = F.max_pool2d(Variable(correlation_map), 3, stride=2, return_indices=True, ceil_mode=True, padding=1)
         pooled_map = pooled_map.data.cpu()
         x_maps = filter_position.shape[0]-1
         y_maps = filter_position.shape[1]-1
@@ -88,7 +88,7 @@ class DeepMatching(object):
                 filter_pos[x][y] = i
                 i += 1
 
-        return maps, filter_pos
+        return maps, filter_pos, pool_index
 
     def _get_response_pyramid(self, response, max_level=None):
         response_maps = response[0]
@@ -100,8 +100,8 @@ class DeepMatching(object):
         N = 8
         i = 0
         while N < max_edge:
-            response_maps, filter_pos = self._t_patch_aggregation(response_maps, filter_pos)
-            pyramid[N] = (response_maps.cpu().numpy(), filter_pos)
+            response_maps, filter_pos, pool_idx = self._t_patch_aggregation(response_maps, filter_pos)
+            pyramid[N] = (response_maps.cpu().numpy(), filter_pos, pool_idx)
             N *= 2
             #print(N)
             i += 1
@@ -110,8 +110,13 @@ class DeepMatching(object):
 
     def _matching(self, pyramid):
         #find entry
-        top_layer = pyramid[list(pyramid.keys())[-1]][0]
-        entry_z, entry_x, entry_y = np.where(top_layer == np.max(top_layer))
+        top_layer = pyramid[list(pyramid.keys())[-1]]
+        entry_z, entry_x, entry_y = np.where(top_layer[0] == np.max(top_layer[0]))
+        
+        get_coord = lambda x, rang_y: (int(x/rang_y), x%rang_y)
+
+    def locate_filter_rec(self, entry_z, filter_pos):
+        filter_position = np.where()
 
 
 
