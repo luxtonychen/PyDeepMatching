@@ -30,6 +30,9 @@ def sparse_conv2(data, reduce_func, weights, dilation):
         o_w, o_h = w+1, h+1
 
     print(o_weights.shape)
+
+    reverse_idx = [[] for i in range(o_h*o_w)]
+
     get_loc = lambda idx, offset: ((idx[0]+offset[0])*w + (idx[1]+offset[1])) if (h > (idx[0]+offset[0]) >= 0 and w > (idx[1]+offset[1]) >= 0 ) else -1
     for row in range(o_h):
         for column in range(o_w):
@@ -62,9 +65,10 @@ def sparse_conv2(data, reduce_func, weights, dilation):
                     reduce_weights[i] = weights[loc[i]]
             
             o_weights[o_loc] = np.sum(reduce_weights)
+            reverse_idx[o_loc] = loc
 
             o_data[o_loc] = reduce_func(selected, (reduce_weights/o_weights[o_loc]))
             #print(o_data[get_loc((row, column), (0, 0))])
     
-    return o_h, o_w, o_data, o_weights
+    return o_h, o_w, o_data, o_weights, reverse_idx
             
