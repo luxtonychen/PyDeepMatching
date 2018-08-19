@@ -14,13 +14,13 @@ def get_entry(pyramid, top_n=100):
         
     return entry
 
-def match_next(entry, current_level, next_level):
+def match_next(entry, current_layer, next_layer):
     entry_idx, entry_score = entry
-    patch_idx = current_level['reverse_idx'][entry_idx[0]]
-    pool_idx = current_level['pool_idx']
-    current_response_size = current_level['response_maps'].shape[1], current_level['response_maps'].shape[2]
-    next_response = next_level['response_maps']
-    h, w = next_response.shape[1], next_response.shape[2]
+    patch_idx = current_layer['reverse_idx'][entry_idx[0]]
+    pool_idx = next_layer['pool_idx']
+    current_response_size = current_layer['map_size']
+    next_response = next_layer['response_maps']
+    h, w = next_layer['map_size']
     match_points = []
 
     max_idx = [(patch_idx[0], (entry_idx[1]-1, entry_idx[2]-1)),
@@ -37,7 +37,7 @@ def match_next(entry, current_level, next_level):
         response_map = next_response[maxima[0]]
         origion_pos = pool_idx[0, maxima[0], maxima[1][0], maxima[1][1]]
         next_pos = int(origion_pos/w), int(origion_pos%w)
-        next_score = response_map[next_pos] + entry_score
+        next_score = response_map[maxima[1]] + entry_score
         next_point = ((maxima[0], next_pos[0], next_pos[1]), next_score)
         match_points.append(next_point)
     
@@ -55,23 +55,16 @@ def match_atomic_patch(pyramid, current_level, entry):
         return atomic_patchs
 
 
-def match_all_entry(entrys, pyramid):
+def match_all_entry(pyramid, entries):
     match_points = []
     match_points_idx = []
     match_points_reverse = []
     match_points_reverse_idx = []
     idx_hash = lambda x, y: int(x/4)*16384 + int(y/4)
     get_patch = lambda x: match_atomic_patch(pyramid, len(pyramid)-1, x)
-    #get_patch2 = partial(match_atomic_patch, pyramid, len(pyramid)-1)
-    #pool = mp.pool.Pool(processes=8)
-    #ap = pool.imap(get_patch2, entrys)
-    #atomic_patchs = []
-    #for p in ap:
-    #    atomic_patchs.extend(p)
-    t1 = default_timer()
-    for e in entrys:
-        atomic_patchs = get_patch(e)#match_atomic_patch(e, pyramid, len(pyramid)-1)
-        #print(atomic_patchs)
+
+    for e in entries:
+        atomic_patchs = get_patch(e)
         for p in atomic_patchs:
             if p[0][0] in match_points_idx:
                 idx = match_points_idx.index(p[0][0])
@@ -89,7 +82,28 @@ def match_all_entry(entrys, pyramid):
             else:
                 match_points_reverse.append(p)
                 match_points_reverse_idx.append(t)
-    print(len(entrys), 'entrys, use', default_timer()-t1, 'seconds', (default_timer()-t1)/len(entrys), 'eps')
+
+    return match_points, match_points_reverse
+
+def match_all_entry_parallel(entries, pyramid):
+    n_processors = 6
+    n_entries = len(entries)
+    print('num of entries', n_entries)
+    step = int(n_entries/n_processors)
+    entries_slice = []
+    for i in range(n_processors-1):
+        entries_slice.append(entries[i*step:(i+1)*step])
+    entries_slice.append(entries[7*step:])
+
+    match_partial_entry = partial(match_all_entry, pyramid)
+    pool = mp.pool.Pool(processes=n_processors)
+    points = pool.imap(match_partial_entry, entries_slice)
+    match_points, match_points_reverse = points.next()
+    for e in points:
+        match_points.extend(e[0])
+        match_points_reverse.extend(e[1])
+    match_points = merge_points(lambda x: x[0][0], match_points)
+    match_points_reverse = merge_points(lambda x: int(x[0][1]/4)*16384 + int(x[0][2]/4), match_points_reverse)
     return match_points, match_points_reverse
 
 def match_entry(entry, pyramid, dir=0):
@@ -106,18 +120,12 @@ def match_entry(entry, pyramid, dir=0):
     
     return match_points
 
-def merge_points(match_points, dir=0, step=1):
-    found = []
-    merged_points = []
-    for p in match_points:
-        loc = lambda x: x[0][0] if dir == 0 else (int(x[0][1]/step), int(x[0][2]/step))
-        if loc(p) in found:
-            idx = found.index(loc(p))
-            if merged_points[idx][1] < p[1]:
-                merged_points[idx] = p
-        else:
-            found.append(loc(p))
-            merged_points.append(p)
+def merge_points(idx_func, points):
+    score_dict = {i: ((0, 0, 0), -1) for i in map(idx_func, points)}
+    for p in points:
+        if p[1] > score_dict[idx_func(p)][1]:
+            score_dict[idx_func(p)] = p
+    merged_points = list(score_dict.values())
     return merged_points
 
 def convert2coord(match_points, shape, kernel_size):
@@ -135,12 +143,15 @@ def matching(pyramid, top_n=-1):
     entry = get_entry(pyramid, top_n)
     #match_points = match_entry(entry, pyramid)
     t1 = default_timer()
-    match_points12, match_points21 = match_all_entry(entry, pyramid)
+    #match_points12, match_points21 = match_all_entry_parallel(entry, pyramid)
+    match_points12, match_points21 = match_all_entry(pyramid, entry)
     match_points12 = sorted(match_points12, key=lambda x: x[1], reverse=True)
     match_points21 = sorted(match_points21, key=lambda x: x[1], reverse=True)
     #match_points12 = sorted(merge_points(match_points, 0), key=lambda x: x[1], reverse=True)
     #match_points21 = sorted(merge_points(match_points, 1, 4), key=lambda x: x[1], reverse=True)
     t2 = default_timer()
+    #mp, mpr = match_all_entry_parallel(entry, pyramid)
+    #t3 = default_timer()
     t = []
     score = lambda x: x[1]
     loc = lambda x: x[0]
@@ -158,7 +169,6 @@ def matching(pyramid, top_n=-1):
                 i21 += 1
             else:
                 i12 += 1
-    t3 = default_timer()
     match_points = convert2coord(t, pyramid[0]['size'], pyramid[0]['kernel_size'])
-    print(t2-t1, t3-t2)
+    print(t2-t1)
     return match_points

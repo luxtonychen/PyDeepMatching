@@ -8,8 +8,9 @@ from collections import OrderedDict
 def construct_pyramid(response_maps, upper_bound, kernel_size = 4):
     h, w = response_maps[0]
     maps = response_maps[1]
+    maph, mapw = maps[0].shape
 
-    pyramid_layer = {'size': (h, w), 'response_maps':maps, 'weights': np.ones(h*w),
+    pyramid_layer = {'size': (h, w), 'map_size': (maph, mapw) , 'response_maps':maps, 'weights': np.ones(h*w),
                      'kernel_size': kernel_size, 'step': 1, 'pool_idx': None, 'reverse_idx':None}
     pyramid = [pyramid_layer]
 
@@ -31,11 +32,13 @@ def get_next_layer(layer):
     tensor_map = torch.from_numpy(t)
     pooled_map, pool_idx = F.max_pool2d(V(tensor_map), 3, stride=2, return_indices=True, ceil_mode=True, padding=1)
     maps = pooled_map.data.numpy()[0]
+    layer['response_maps'] = maps # so that we could only store pooled map to save memory usage
+    layer['pool_idx'] = pool_idx
 
     h, w, maps, weights, reverse_idx = sparse_conv2((layer['size'][0], layer['size'][1], maps), aggregation, layer['weights'], step)
-    
-    return {'size': (h, w), 'response_maps':maps, 'weights': weights, 'kernel_size': kernel_size, 
-            'step': step, 'pool_idx': pool_idx, 'reverse_idx': reverse_idx}
+    maph, mapw = maps[0].shape
+    return {'size': (h, w), 'map_size': (maph, mapw), 'response_maps':maps, 'weights': weights, 'kernel_size': kernel_size, 
+            'step': step, 'pool_idx': None, 'reverse_idx': reverse_idx}
 
 def aggregation(imgs, weights):
     
