@@ -54,34 +54,27 @@ def match_atomic_patch(pyramid, current_level, entry):
             atomic_patchs.extend(match_atomic_patch(pyramid, next_level, p))
         return atomic_patchs
 
+def match_atomic_patch_loop(pyramid, entry):
+    depth = len(pyramid)
+    entries = [entry]
+    for i in range(1, depth):
+        tmp_entries = []
+        for e in entries:
+            tmp_entries.extend(match_next(e, pyramid[depth-i], pyramid[depth-(i+1)]))
+        entries = tmp_entries
+    return entries
 
 def match_all_entry(pyramid, entries):
     match_points = []
-    match_points_idx = []
-    match_points_reverse = []
-    match_points_reverse_idx = []
-    idx_hash = lambda x, y: int(x/4)*16384 + int(y/4)
+
     get_patch = lambda x: match_atomic_patch(pyramid, len(pyramid)-1, x)
-
+    
+    atomic_patchs = []
     for e in entries:
-        atomic_patchs = get_patch(e)
-        for p in atomic_patchs:
-            if p[0][0] in match_points_idx:
-                idx = match_points_idx.index(p[0][0])
-                if match_points[idx][1] < p[1]:
-                    match_points[idx] = p
-            else:
-                match_points.append(p)
-                match_points_idx.append(p[0][0])
+        atomic_patchs.extend(get_patch(e))
 
-            t = idx_hash(p[0][1], p[0][2])
-            if t in match_points_reverse_idx:
-                idx = match_points_reverse_idx.index(t)
-                if match_points_reverse[idx][1] < p[1]:
-                    match_points_reverse[idx] = p
-            else:
-                match_points_reverse.append(p)
-                match_points_reverse_idx.append(t)
+    match_points = merge_points(lambda x: x[0][0], atomic_patchs)
+    match_points_reverse = merge_points(lambda x: int(x[0][1]/4)*16384 + int(x[0][2]/4), atomic_patchs)
 
     return match_points, match_points_reverse
 
@@ -133,7 +126,7 @@ def convert2coord(match_points, shape, kernel_size):
     match_points_c = []
     for p in match_points:
         x0, y0 = (p[0][0] % w), int(p[0][0]/w)
-        x0, y0 = x0*kernel_size+int(kernel_size/2), y0*kernel_size+int(kernel_size/2)
+        x0, y0 = x0*kernel_size, y0*kernel_size
         x1, y1 = p[0][2]*2, p[0][1]*2
         match_points_c.append(((x0, y0), (x1, y1), p[1]))
     return match_points_c
@@ -141,34 +134,29 @@ def convert2coord(match_points, shape, kernel_size):
 
 def matching(pyramid, top_n=-1):
     entry = get_entry(pyramid, top_n)
-    #match_points = match_entry(entry, pyramid)
     t1 = default_timer()
-    #match_points12, match_points21 = match_all_entry_parallel(entry, pyramid)
     match_points12, match_points21 = match_all_entry(pyramid, entry)
-    match_points12 = sorted(match_points12, key=lambda x: x[1], reverse=True)
-    match_points21 = sorted(match_points21, key=lambda x: x[1], reverse=True)
-    #match_points12 = sorted(merge_points(match_points, 0), key=lambda x: x[1], reverse=True)
-    #match_points21 = sorted(merge_points(match_points, 1, 4), key=lambda x: x[1], reverse=True)
+    #match_points12 = sorted(match_points12, key=lambda x: x[1], reverse=True)
+    #match_points21 = sorted(match_points21, key=lambda x: x[1], reverse=True)
     t2 = default_timer()
-    #mp, mpr = match_all_entry_parallel(entry, pyramid)
-    #t3 = default_timer()
-    t = []
-    score = lambda x: x[1]
-    loc = lambda x: x[0]
-    i21 = 0
-    i12 = 0
-    while i12 < len(match_points12):
-        if score(match_points12[i12]) < score(match_points21[i21]):
-            i21 += 1
-        elif score(match_points12[i12]) > score(match_points21[i21]):
-            i12 += 1
-        else: 
-            if loc(match_points12[i12]) == loc(match_points21[i21]):
-                t.append(match_points12[i12])
-                i12 += 1
-                i21 += 1
-            else:
-                i12 += 1
-    match_points = convert2coord(t, pyramid[0]['size'], pyramid[0]['kernel_size'])
+    match_points = list(set(match_points12) & set(match_points21))
+#    t = []
+#    score = lambda x: x[1]
+#    loc = lambda x: x[0]
+#    i21 = 0
+#    i12 = 0
+#    while (i12 < len(match_points12)) and i21 < len(match_points21):
+#        if score(match_points12[i12]) < score(match_points21[i21]):
+#            i21 += 1
+#        elif score(match_points12[i12]) > score(match_points21[i21]):
+#            i12 += 1
+#        else: 
+#            if loc(match_points12[i12]) == loc(match_points21[i21]):
+#                t.append(match_points12[i12])
+#                i12 += 1
+#                i21 += 1
+#            else:
+#                i12 += 1
+    match_points = convert2coord(match_points, pyramid[0]['size'], pyramid[0]['kernel_size'])
     print(t2-t1)
     return match_points
