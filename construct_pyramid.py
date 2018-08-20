@@ -43,7 +43,8 @@ def get_next_layer(layer):
 def aggregation(imgs, weights):
     
     edge_correction_factor = get_weights_mat(weights, 0.9) #conv.cpp:_sparse_conv
-    next_layer = _aggregation_mat(imgs, weights)
+    #next_layer = _aggregation_mat(imgs, weights)
+    next_layer = _aggregation_slice(imgs, weights)
 
     return edge_correction(next_layer, edge_correction_factor)**1.4
 
@@ -88,7 +89,13 @@ def _aggregation_mat(imgs, weights):
     
     return np.reshape((im1+im2+im3+im4), (h, w))
 
-
+def _aggregation_slice(imgs, wights):
+    res = np.zeros(imgs[0].shape)
     
-
+    res[1:, 1:] += imgs[0][:-1, :-1]*wights[0]
+    res[1:, :-1] += imgs[1][:-1, 1:]*wights[1]
+    res[:-1, 1:] += imgs[2][1:, :-1]*wights[2]
+    res[:-1, :-1] += imgs[3][1:, 1:]*wights[3]
     
+    return res
+

@@ -108,7 +108,6 @@ def match_entry(entry, pyramid, dir=0):
         tmp_entry = []
         for e in match_points:
             tmp_entry.extend(match_next(e, current_level, next_level))
-        #match_points = merge_points(tmp_entry, dir=dir)
         match_points = tmp_entry
     
     return match_points
@@ -126,7 +125,7 @@ def convert2coord(match_points, shape, kernel_size):
     match_points_c = []
     for p in match_points:
         x0, y0 = (p[0][0] % w), int(p[0][0]/w)
-        x0, y0 = x0*kernel_size, y0*kernel_size
+        x0, y0 = x0*kernel_size+kernel_size/2, y0*kernel_size+kernel_size/2
         x1, y1 = p[0][2]*2, p[0][1]*2
         match_points_c.append(((x0, y0), (x1, y1), p[1]))
     return match_points_c
@@ -136,27 +135,8 @@ def matching(pyramid, top_n=-1):
     entry = get_entry(pyramid, top_n)
     t1 = default_timer()
     match_points12, match_points21 = match_all_entry(pyramid, entry)
-    #match_points12 = sorted(match_points12, key=lambda x: x[1], reverse=True)
-    #match_points21 = sorted(match_points21, key=lambda x: x[1], reverse=True)
     t2 = default_timer()
     match_points = list(set(match_points12) & set(match_points21))
-#    t = []
-#    score = lambda x: x[1]
-#    loc = lambda x: x[0]
-#    i21 = 0
-#    i12 = 0
-#    while (i12 < len(match_points12)) and i21 < len(match_points21):
-#        if score(match_points12[i12]) < score(match_points21[i21]):
-#            i21 += 1
-#        elif score(match_points12[i12]) > score(match_points21[i21]):
-#            i12 += 1
-#        else: 
-#            if loc(match_points12[i12]) == loc(match_points21[i21]):
-#                t.append(match_points12[i12])
-#                i12 += 1
-#                i21 += 1
-#            else:
-#                i12 += 1
     match_points = convert2coord(match_points, pyramid[0]['size'], pyramid[0]['kernel_size'])
     print(t2-t1)
     return match_points
