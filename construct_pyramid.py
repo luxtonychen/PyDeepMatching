@@ -4,6 +4,7 @@ import torch
 import torch.nn.functional as F
 from torch.autograd import Variable as V
 from collections import OrderedDict
+from numba import jit
 
 def construct_pyramid(response_maps, upper_bound, kernel_size = 4):
     h, w = response_maps[0]
@@ -61,7 +62,8 @@ def get_weights_mat(weights, inv):
             if x != 0:
                 weights_mat[i, j] = (1/x)**(0.9)
     return weights_mat
-    
+
+
 def edge_correction(img, f):
     img[0,0] *= f[0,0]
     img[0,-1] *= f[0,-1]

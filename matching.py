@@ -2,7 +2,7 @@ import numpy as np
 import multiprocessing as mp
 from timeit import default_timer
 from functools import partial
-
+from numba import jit
 
 def get_entry(pyramid, top_n=100):
     entry = []

@@ -8,6 +8,7 @@ import scipy.signal as sig
 from torch.autograd import Variable as V
 import matplotlib.pyplot as plt
 
+
 def construct_response(img1, img2):
     img1 = smooth(img1)
     img2 = smooth(img2)
