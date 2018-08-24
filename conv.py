@@ -45,7 +45,7 @@ def slide_window(img, window_size, stride=1):
 # convolution with group of filters with stride 1, and apply sum on channel axis
 # input shape: image: (num_channel, img_h, img_w)
 #              filters: ((num_channel, num_filters, filter_h*filter_w))
-# output shape: (num_filters, response_map_h, response_map_w)
+# output shape: (num_filters, response_map_h*response_map_w)
 def batch_conv(img, filters, filter_size, padding):
     img_h, img_w = img.shape[1], img.shape[2]
     padded_shape = (img.shape[0], img_h+2*padding[0], img_w+2*padding[1])
@@ -56,3 +56,11 @@ def batch_conv(img, filters, filter_size, padding):
     conv_img = np.einsum('ijk, ikl->jl', filters, im)
     return conv_img
 
+def average_pool(img, shape, stride):
+    get_shape = lambda x, w: int((x-(w-1)-1)/stride)+1
+    ih, iw = img.shape[1], img.shape[2]
+    fh, fw = shape[0], shape[1]
+    kernel = np.array([[1/(shape[0]*shape[1]) for i in range(shape[0]*shape[1])]])
+    im = slide_window(img, shape, stride)
+    pooled_img = np.einsum('jk, ikl->ijl', kernel, im)
+    return pooled_img.reshape((pooled_img.shape[0], get_shape(ih, fh), get_shape(iw, fw)))
