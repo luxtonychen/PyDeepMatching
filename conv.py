@@ -64,3 +64,38 @@ def average_pool(img, shape, stride):
     im = slide_window(img, shape, stride)
     pooled_img = np.einsum('jk, ikl->ijl', kernel, im)
     return pooled_img.reshape((pooled_img.shape[0], get_shape(ih, fh), get_shape(iw, fw)))
+
+def max(input):
+    maxima = (0, input[0])
+    for i in range(1,len(input)):
+        if maxima[1] < input[i]:
+            maxima = (i, input[i])
+    return maxima
+
+def max_pool(imgs, kernel_shape, padding=(0, 0), stride=2):
+    get_shape = lambda x, y, p, s: int(np.floor(((x+2*p-(y-1)-1)/s)+1))
+    i_shape = imgs.shape[1], imgs.shape[2]
+    o_shape = get_shape(imgs.shape[1], kernel_shape[0], padding[0], stride), get_shape(imgs.shape[2], kernel_shape[1], padding[1], stride)
+    pooled_img = np.zeros((imgs.shape[0],) + o_shape)
+    pool_idx = np.zeros((imgs.shape[0],) + o_shape)
+    padded_img = -np.ones((imgs.shape[1]+2*padding[0], imgs.shape[2]+2*padding[1]))
+    idx = np.zeros((2, o_shape[0]*o_shape[1]), dtype='int64')
+    idx[0] = np.arange(idx.shape[1])
+    
+    #idx2coord = [(int(i/o_shape[1])*stride-padding[0], int(i%o_shape[1])*stride-padding[1]) for i in idx[0]]
+    x = np.floor((idx[0]/o_shape[1]))*stride - padding[0]
+    y = np.floor((idx[0]%o_shape[1]))*stride - padding[1]
+    for img_idx in range(imgs.shape[0]):
+        img = imgs[img_idx]
+        if padding != (0, 0):
+            padded_img[padding[0]:-(padding[0]+0), padding[1]:-(padding[1]+0)] = img
+            col_img = slide_window(padded_img.reshape((1,)+padded_img.shape), kernel_shape, stride).swapaxes(1, 2)
+        else:
+            col_img = slide_window(img.reshape((1,)+img.shape), kernel_shape, stride).swapaxes(1, 2)
+
+        idx[1] = np.argmax(col_img, axis=-1)
+        pooled_img[img_idx] = col_img[0, idx[0], idx[1]].reshape(o_shape)
+        dx = np.floor(idx[1]/kernel_shape[1])
+        dy = np.floor(idx[1]%kernel_shape[1])
+        pool_idx[img_idx] = ((x+dx)*i_shape[1]+(y+dy)).reshape(o_shape).astype('int64')
+    return pooled_img, pool_idx

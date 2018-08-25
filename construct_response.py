@@ -2,10 +2,7 @@ import skimage.io as io
 import numpy as np
 import skimage
 from skimage import filters
-import torch 
-import torch.nn.functional as F
 import scipy.signal as sig
-from torch.autograd import Variable as V
 import matplotlib.pyplot as plt
 import conv
 from numpy.lib.stride_tricks import as_strided
@@ -73,41 +70,6 @@ def smooth(img, sigma=1):
         img = filters.gaussian(img, sigma=sigma)
     return img
 
-def get_response(res1, res2, slice_shape = 8):
-    img_h, img_w = res1.shape[1], res1.shape[2]
-    high, width = int(img_h/slice_shape), int(img_w/slice_shape)
-    filters = np.zeros((width*high, 9, slice_shape, slice_shape))
-    norm_weight = np.ones((1, 9, int(slice_shape/2), int(slice_shape/2)))
-
-    for h in range(high):
-        for w in range(width):
-            idx = h*width + w
-            filters[idx] = res1[:, h*slice_shape:(h+1)*slice_shape, w*slice_shape:(w+1)*slice_shape]#.transpose((0, 2, 1))
-
-    filter_tensor = V(torch.from_numpy(filters))
-    img_tensor = V(torch.from_numpy(np.expand_dims(res2, axis=0)))
-    norm_tensor = V(torch.from_numpy(norm_weight))
-
-    filter_tensor = F.avg_pool2d(filter_tensor, 2, stride=2, padding=0)
-    
-    n = torch.pow(filter_tensor, 2)
-    n = torch.sqrt(torch.sum(torch.sum(torch.sum(n, -1), -1), -1))
-    
-    for i in range(n.shape[0]):
-        filter_tensor[i] /= n[i]
-    
-    img_tensor = F.avg_pool2d(img_tensor, 2, stride=2, padding=0)
-
-    norm = F.conv2d(torch.pow(img_tensor, 2), norm_tensor, padding=int(slice_shape/4))
-    norm = torch.sqrt(norm)
-
-    res = F.conv2d(img_tensor, filter_tensor, padding=int(slice_shape/4))
-    res = res.data.numpy()[0]
-    norm = norm.data.numpy()[0, 0]
-    for i in range(res.shape[0]):
-        res[i] /= norm
-    return (high, width), res
-
 def np_get_response(res1, res2, slice_shape = 8):
     img_h, img_w = res1.shape[1], res1.shape[2]
     high, width = int(img_h/slice_shape), int(img_w/slice_shape)
@@ -133,11 +95,9 @@ def np_get_response(res1, res2, slice_shape = 8):
     norm = np.sqrt(np.sum(np.sum(norm, 1), 0))
 
     res = conv.batch_conv(ds_res2, filters, real_slice_shape, padding)
-    print(res.shape)
     res /= norm
-    print(res.shape)
     res_shape = (res.shape[0], padded_shape[1]-real_slice_shape[0]+1, padded_shape[2]-real_slice_shape[1]+1)
-    return (high, width), res.reshape(res_shape)
+    return (high, width), res.reshape(res_shape).astype('float32')
 
 
 def add_ninth(hog, value = 0.3):

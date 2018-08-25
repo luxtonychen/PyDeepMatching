@@ -36,6 +36,7 @@ def match_next(entry, current_layer, next_layer):
         
         response_map = next_response[maxima[0]]
         origion_pos = pool_idx[0, maxima[0], maxima[1][0], maxima[1][1]]
+        #origion_pos = pool_idx[maxima[0], maxima[1][0], maxima[1][1]]
         next_pos = int(origion_pos/w), int(origion_pos%w)
         next_score = response_map[maxima[1]] + entry_score
         next_point = ((maxima[0], next_pos[0], next_pos[1]), next_score)
