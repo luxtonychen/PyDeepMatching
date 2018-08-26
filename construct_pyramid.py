@@ -27,12 +27,13 @@ def np_get_next_layer(layer):
     maps = layer['response_maps']
     z, y, x = maps.shape
     pooled_map, pool_idx = conv.max_pool(maps, (3, 3), (1, 1))
-    layer['response_maps'] = pooled_map # so that we could only store pooled map to save memory usage
+    layer['response_maps'] = pooled_map.astype('float32') # so that we could only store pooled map to save memory usage
     layer['pool_idx'] = pool_idx.reshape((1,)+pool_idx.shape)
+    del(maps)
 
     h, w, maps, weights, reverse_idx = sparse_conv2((layer['size'][0], layer['size'][1], pooled_map), aggregation, layer['weights'], step)
     maph, mapw = maps[0].shape
-    return {'size': (h, w), 'map_size': (maph, mapw), 'response_maps':maps, 'weights': weights, 'kernel_size': kernel_size, 
+    return {'size': (h, w), 'map_size': (maph, mapw), 'response_maps':maps.astype('float32'), 'weights': weights, 'kernel_size': kernel_size, 
             'step': step, 'pool_idx': None, 'reverse_idx': reverse_idx}
 
 

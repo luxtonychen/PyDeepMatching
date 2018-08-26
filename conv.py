@@ -65,12 +65,6 @@ def average_pool(img, shape, stride):
     pooled_img = np.einsum('jk, ikl->ijl', kernel, im)
     return pooled_img.reshape((pooled_img.shape[0], get_shape(ih, fh), get_shape(iw, fw)))
 
-def max(input):
-    maxima = (0, input[0])
-    for i in range(1,len(input)):
-        if maxima[1] < input[i]:
-            maxima = (i, input[i])
-    return maxima
 
 def max_pool(imgs, kernel_shape, padding=(0, 0), stride=2):
     get_shape = lambda x, y, p, s: int(np.floor(((x+2*p-(y-1)-1)/s)+1))
